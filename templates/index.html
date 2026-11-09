@@ -1,0 +1,318 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LANtern | Network Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">L</div>
+            <div>
+                <h2>LANtern</h2>
+                <span>Network Monitor</span>
+            </div>
+        </div>
+
+        <div class="nav-label">WORKSPACE</div>
+        <nav>
+            <a href="#overview" class="nav-item active">
+                <span>▦</span> Overview
+            </a>
+            <a href="#devices" class="nav-item">
+                <span>⌘</span> Devices
+            </a>
+            <a href="#discovery" class="nav-item">
+                <span>⌕</span> Network Discovery
+            </a>
+            <a href="#activity" class="nav-item">
+                <span>◷</span> Activity Log
+            </a>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <div class="connection-indicator">
+                <span class="live-dot"></span>
+                Monitoring service
+                <strong>Active</strong>
+            </div>
+            <p>LANtern <span>·</span> Local Network Monitor</p>
+        </div>
+    </aside>
+
+    <main class="main-content">
+
+        <header class="topbar">
+            <div>
+                <div class="breadcrumb">Workspace / Overview</div>
+                <h1>Network Overview</h1>
+                <p class="page-subtitle">Monitor devices connected to your local network.</p>
+            </div>
+            <button class="refresh-btn" onclick="window.location.reload()">
+                ↻ <span>Refresh</span>
+            </button>
+        </header>
+
+        <section id="overview" class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-heading">
+                    <span>Total Devices</span>
+                    <span class="stat-icon">⌘</span>
+                </div>
+                <div class="stat-value">{{ total }}</div>
+                <div class="stat-description">Registered devices</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-heading">
+                    <span>Online</span>
+                    <span class="stat-icon online-icon">●</span>
+                </div>
+                <div class="stat-value">{{ online }}</div>
+                <div class="stat-description">Currently reachable</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-heading">
+                    <span>Offline</span>
+                    <span class="stat-icon offline-icon">●</span>
+                </div>
+                <div class="stat-value">{{ offline }}</div>
+                <div class="stat-description">Currently unreachable</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-heading">
+                    <span>Check Interval</span>
+                    <span class="stat-icon">◷</span>
+                </div>
+                <div class="stat-value">{{ check_interval }}<small> sec</small></div>
+                <div class="stat-description">Monitoring frequency</div>
+            </div>
+        </section>
+
+        <section id="devices" class="panel devices-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Monitored Devices</h2>
+                    <p>Manage and check the status of your network devices.</p>
+                </div>
+                <span class="count-label">{{ total }} devices</span>
+            </div>
+
+            <form class="add-device-form" method="POST" action="/devices">
+                <div class="form-field">
+                    <label for="device-name">Device Name</label>
+                    <input id="device-name" type="text" name="name"
+                           placeholder="e.g. My Laptop" required>
+                </div>
+
+                <div class="form-field">
+                    <label for="device-ip">IP Address</label>
+                    <input id="device-ip" type="text" name="ip"
+                           placeholder="e.g. 192.168.1.10" required>
+                </div>
+
+                <div class="form-field port-field">
+                    <label for="device-port">TCP Port <span>(optional)</span></label>
+                    <input id="device-port" type="number" name="port"
+                           placeholder="e.g. 80" min="1" max="65535">
+                </div>
+
+                <button class="primary-btn" type="submit">+ Add Device</button>
+            </form>
+
+            <div class="table-wrapper">
+                <table class="device-table">
+                    <thead>
+                        <tr>
+                            <th>DEVICE</th>
+                            <th>IP ADDRESS</th>
+                            <th>STATUS</th>
+                            <th>LATENCY</th>
+                            <th>TCP PORT</th>
+                            <th>UPTIME</th>
+                            <th>LAST SEEN</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for d in devices %}
+                        <tr>
+                            <td class="device-name-cell">
+                                <div class="device-avatar">⌘</div>
+                                <strong>{{ d.name }}</strong>
+                            </td>
+                            <td class="ip-cell">{{ d.ip }}</td>
+                            <td>
+                                {% if d.status == 'Online' %}
+                                    <span class="status-pill status-online">● Online</span>
+                                {% else %}
+                                    <span class="status-pill status-offline">● Offline</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ d.latency if d.latency is not none else '—' }}{% if d.latency is not none %} ms{% endif %}</td>
+                            <td>
+                                {% if d.port %}
+                                    <span class="port-value">{{ d.port }}</span>
+                                    <span class="muted-text">{{ d.port_status or '—' }}</span>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ d.uptime or '—' }}</td>
+                            <td class="muted-text">{{ d.last_seen or 'Never' }}</td>
+                            <td>
+                                <form method="POST" action="/devices/{{ d.id }}/delete"
+                                      onsubmit="return confirm('Remove this device?')">
+                                    <button class="delete-btn" type="submit" title="Remove device">×</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="empty-state">
+                                <div class="empty-icon">⌘</div>
+                                <strong>No devices added yet</strong>
+                                <p>Add a device above to start monitoring your network.</p>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="discovery" class="panel discovery-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Network Discovery</h2>
+                    <p>Find active devices on your local network.</p>
+                </div>
+                <button class="secondary-btn" id="scan-button" onclick="discoverNetwork()">
+                    Scan Network
+                </button>
+            </div>
+            <div id="scan-result" class="scan-result">
+                <span class="scan-placeholder">Run a network scan to discover available devices.</span>
+            </div>
+        </section>
+
+        <section id="activity" class="panel activity-panel">
+            <div class="panel-header">
+                <div>
+                    <h2>Recent Activity</h2>
+                    <p>Latest network status checks.</p>
+                </div>
+                <a class="export-link" href="/export/history.csv">↓ Export CSV</a>
+            </div>
+
+            <div class="activity-list">
+                {% for h in recent %}
+                    <div class="activity-row">
+                        <div class="activity-indicator {% if h.status == 'Online' %}activity-online{% else %}activity-offline{% endif %}"></div>
+                        <div class="activity-details">
+                            <strong>{{ h.name }}</strong>
+                            <span>{{ h.ip }}</span>
+                        </div>
+                        <span class="activity-status">{{ h.status }}</span>
+                        <time>{{ h.checked_at }}</time>
+                    </div>
+                {% else %}
+                    <div class="empty-activity">No monitoring activity recorded yet.</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <footer class="footer">
+            <span>LANtern</span> · Local Area Network Monitoring System
+            <span class="footer-right">Monitoring interval: {{ check_interval }} seconds</span>
+        </footer>
+
+    </main>
+</div>
+
+<script>
+async function discoverNetwork() {
+    const button = document.getElementById('scan-button');
+    const result = document.getElementById('scan-result');
+
+    button.disabled = true;
+    button.textContent = 'Scanning...';
+    result.innerHTML = '<span class="scan-placeholder">Searching for active devices...</span>';
+
+    try {
+        const response = await fetch('/api/discover');
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Network scan failed.');
+        }
+
+        const found = data.found || [];
+
+        if (found.length === 0) {
+            result.innerHTML = `
+                <div class="scan-summary">
+                    <strong>Scan completed</strong>
+                    <span>${data.scanned ?? 0} addresses checked · No new devices found</span>
+                </div>`;
+        } else {
+            const entries = found.map(item => {
+                const ip = typeof item === 'string' ? item : (item.ip || item.address || '');
+                const name = typeof item === 'object' ? (item.name || ip) : ip;
+
+                return `
+                    <div class="discovered-device">
+                        <div>
+                            <strong>${escapeHTML(name)}</strong>
+                            <span>${escapeHTML(ip)}</span>
+                        </div>
+                        <button class="small-add-btn"
+                            onclick="fillDeviceForm('${escapeJS(ip)}', '${escapeJS(name)}')">
+                            Use IP
+                        </button>
+                    </div>`;
+            }).join('');
+
+            result.innerHTML = `
+                <div class="scan-summary">
+                    <strong>Scan completed</strong>
+                    <span>${data.scanned ?? 0} addresses checked · ${found.length} devices found</span>
+                </div>
+                <div class="discovered-list">${entries}</div>`;
+        }
+    } catch (error) {
+        result.innerHTML = `<p class="scan-error">${escapeHTML(error.message)}</p>`;
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Scan Network';
+    }
+}
+
+function fillDeviceForm(ip, name) {
+    document.getElementById('device-ip').value = ip;
+    document.getElementById('device-name').value = name;
+    document.getElementById('device-name').focus();
+    document.getElementById('devices').scrollIntoView({ behavior: 'smooth' });
+}
+
+function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;',
+        '"': '&quot;', "'": '&#39;'
+    }[char]));
+}
+
+function escapeJS(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+</script>
+</body>
+</html>
+
